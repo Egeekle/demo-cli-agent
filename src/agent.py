@@ -11,6 +11,7 @@ from src.tools import (
     get_appointment,
     create_appointment,
     delete_appointment,
+    resolve_scheduling_conflicts
 )
 from src.settings import settings
 
@@ -26,7 +27,7 @@ model = OpenAIResponsesModel(settings.MODEL_NAME, provider=openai_provider)
 appointment_agent = Agent(
     model,
     deps_type=Deps,
-    output_type=str,  # Explicitly stating we want string output
+    output_type=str, # Explicitly stating we want string output
     system_prompt=(
         "You are a helpful personal assistant managing appointments.\n"
         "You can list, search, view, create, and delete appointments.\n"
@@ -41,17 +42,24 @@ appointment_agent = Agent(
         "2. For information requests (LIST, SEARCH, GET):\n"
         "   - You can call these tools immediately to provide information.\n"
         "\n"
+        "### CONFLICT RESOLUTION ###\n"
+        "If you check for availability (e.g., using `search_appointments`) and find a conflict:\n"
+        "1. DO NOT just say 'There is a conflict'.\n"
+        "2. Call the `resolve_scheduling_conflicts` tool with the user's request and the list of relevant/overlapping appointments.\n"
+        "3. The tool will return structured suggestions. Use them to offer the user specific alternatives.\n"
+        "4. PRESENT THE ALTERNATIVES IN A MARKDOWN TABLE with columns: 'Time Slot', 'Reasoning'.\n"
+        "\n"
         "Today's date is available to you. Be polite and concise."
     ),
 )
 
-# Register tools using @agent.tool decorator style is often preferred for deps
+# Register tools
 appointment_agent.tool(list_appointments)
 appointment_agent.tool(search_appointments)
 appointment_agent.tool(get_appointment)
 appointment_agent.tool(create_appointment)
 appointment_agent.tool(delete_appointment)
-
+appointment_agent.tool(resolve_scheduling_conflicts)
 
 @appointment_agent.system_prompt
 def get_current_date() -> str:
