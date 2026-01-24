@@ -55,6 +55,6 @@ For more details, see [ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 ## 🧪 Testing
 Run the full test suite with:
 ```bash
-PYTHONPATH=. uv run pytest
+uv run pytest
 ```
 The suite covers settings, database integrity, and agent tool logic.
