@@ -1,0 +1,20 @@
+{"inputs": {"user_prompt": "Can you schedule a project kickoff meeting for next Monday at 10 AM for 2 hours in Conference Room A?"}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "What appointments do I have on Thursday, February 12th?"}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Please cancel my Doctor's Appointment scheduled for tomorrow at 2 PM."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Show me the details for the Marketing Team Meeting next Tuesday at 3 PM."}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Add a lunch meeting with the new client on Friday at 1 PM for 1 hour."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Who do I have a lunch appointment with this Friday around noon?"}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Delete the Team Sync meeting on Thursday at 9 AM, please."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "List all my appointments for the week of February 16th."}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Set up a brainstorming session next Wednesday at 11 AM lasting 90 minutes."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "What time is my Dentist Appointment on May 5?"}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Reschedule the Lunch with Sarah on Friday to 1 PM instead of noon."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Do I have any appointments booked for Tuesday, February 17?"}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Please add a performance review meeting next Thursday at 4 PM for 45 minutes."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Tell me about my Team Sync meeting this Thursday morning."}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Remove the Dentist Appointment from my calendar for May 5th."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Find all my appointments scheduled for February 12th."}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Create a follow-up call with the vendor next Wednesday at 3 PM for 30 minutes."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "What appointments do I have next Friday around noon?"}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}
+{"inputs": {"user_prompt": "Update the Marketing Team Meeting time to 4 PM on Tuesday, February 17."}, "expectations": {"expected_category": "REQUIRES_CONFIRMATION"}}
+{"inputs": {"user_prompt": "Show all appointments scheduled for February 13."}, "expectations": {"expected_category": "NO_CONFIRMATION_NEEDED"}}

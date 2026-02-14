@@ -1,6 +1,7 @@
 import subprocess
-from src.settings import settings
 from urllib.parse import urlparse
+
+from src.settings import settings
 
 
 def serve():
@@ -12,7 +13,7 @@ def serve():
     parsed_uri = urlparse(uri)
 
     # Default port if not found in URI
-    port = parsed_uri.port if parsed_uri.port else 5050
+    port = parsed_uri.port if parsed_uri.port else 5000
     host = parsed_uri.hostname if parsed_uri.hostname else "127.0.0.1"
 
     # We use the tracking URI itself as the backend-store-uri if it's sqlite
