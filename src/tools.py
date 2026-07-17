@@ -40,39 +40,53 @@ async def get_appointment(ctx: RunContext[Deps], id: int) -> Optional[Appointmen
     """Get a specific appointment by ID."""
     return await ctx.deps.session.get(Appointment, id)
 
-def create_appointment(
+def _validate_times(ctx: RunContext[Deps], start_time: datetime, end_time: datetime) -> None:
+    if end_time <= start_time:
+        raise ModelRetry("end_time must be after start_time.")
+    if start_time < ctx.deps.now():
+        raise ModelRetry("start_time is in the past; pick a future time.")
+
+
+async def create_appointment(
     ctx: RunContext[Deps],
     title: str,
     start_time: datetime,
     end_time: datetime,
     location: Optional[str] = None,
-    description: Optional[str] = None
+    description: Optional[str] = None,
 ) -> Appointment:
-    """
-    Create a new appointment.
-    """
+    """Create a new appointment. Refuses to double-book: if the slot overlaps an
+    existing appointment, raises so the model must resolve the conflict first."""
+    _validate_times(ctx, start_time, end_time)
+    conflicts = await check_availability(ctx, start=start_time, end=end_time)
+    if conflicts:
+        names = ", ".join(f"{c.title} ({c.start_time:%b %d %H:%M})" for c in conflicts)
+        raise ModelRetry(
+            f"This slot conflicts with: {names}. Do not create it; resolve the "
+            f"conflict (offer the user alternative slots) before creating."
+        )
     appointment = Appointment(
         title=title,
         start_time=start_time,
         end_time=end_time,
         location=location,
-        description=description
+        description=description,
     )
     ctx.deps.session.add(appointment)
-    ctx.deps.session.commit()
-    ctx.deps.session.refresh(appointment)
+    await ctx.deps.session.commit()
+    await ctx.deps.session.refresh(appointment)
     return appointment
 
-def delete_appointment(ctx: RunContext[Deps], appointment_id: int) -> bool:
-    """
-    Delete an appointment by ID.
-    """
-    appointment = ctx.deps.session.get(Appointment, appointment_id)
+
+async def delete_appointment(ctx: RunContext[Deps], appointment_id: int) -> bool:
+    """Delete an appointment by ID. Returns False if it does not exist."""
+    appointment = await ctx.deps.session.get(Appointment, appointment_id)
     if not appointment:
         return False
-    ctx.deps.session.delete(appointment)
-    ctx.deps.session.commit()
+    await ctx.deps.session.delete(appointment)
+    await ctx.deps.session.commit()
     return True
+
 
 async def check_availability(
     ctx: RunContext[Deps],
