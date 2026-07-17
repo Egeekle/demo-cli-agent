@@ -1,40 +1,44 @@
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Any
-from sqlmodel import select, col, Session
-from pydantic_ai import RunContext
+from typing import Any, Callable, List, Optional
+
+from pydantic_ai import ModelRetry, RunContext
+from sqlmodel import col, select
+
 from src.models import Appointment
 from src.schemas import ConflictResolution
 
+
+@dataclass
 class Deps:
-    def __init__(self, session: Session, negotiator_agent: Any = None):
-        self.session = session
-        self.negotiator_agent = negotiator_agent
+    session: Any  # AsyncSession (sqlmodel.ext.asyncio.session)
+    negotiator_agent: Any  # Agent[None, ConflictResolution]
+    now: Callable[[], datetime] = datetime.now
 
-def list_appointments(ctx: RunContext[Deps], limit: int = 10, offset: int = 0) -> List[Appointment]:
-    """
-    List appointments with pagination.
-    """
+
+async def list_appointments(
+    ctx: RunContext[Deps], limit: int = 10, offset: int = 0
+) -> List[Appointment]:
+    """List appointments with pagination."""
     statement = select(Appointment).offset(offset).limit(limit)
-    results = ctx.deps.session.exec(statement)
+    results = await ctx.deps.session.exec(statement)
     return list(results.all())
 
-def search_appointments(ctx: RunContext[Deps], query: str) -> List[Appointment]:
-    """
-    Search appointments by title, location or description.
-    """
+
+async def search_appointments(ctx: RunContext[Deps], query: str) -> List[Appointment]:
+    """Search appointments by title, location or description."""
     statement = select(Appointment).where(
-        (col(Appointment.title).contains(query)) |
-        (col(Appointment.description).contains(query)) |
-        (col(Appointment.location).contains(query))
+        (col(Appointment.title).contains(query))
+        | (col(Appointment.description).contains(query))
+        | (col(Appointment.location).contains(query))
     )
-    results = ctx.deps.session.exec(statement)
+    results = await ctx.deps.session.exec(statement)
     return list(results.all())
 
-def get_appointment(ctx: RunContext[Deps], id: int) -> Optional[Appointment]:
-    """
-    Get a specific appointment by ID.
-    """
-    return ctx.deps.session.get(Appointment, id)
+
+async def get_appointment(ctx: RunContext[Deps], id: int) -> Optional[Appointment]:
+    """Get a specific appointment by ID."""
+    return await ctx.deps.session.get(Appointment, id)
 
 def create_appointment(
     ctx: RunContext[Deps],
