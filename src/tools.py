@@ -74,24 +74,44 @@ def delete_appointment(ctx: RunContext[Deps], appointment_id: int) -> bool:
     ctx.deps.session.commit()
     return True
 
+async def check_availability(
+    ctx: RunContext[Deps],
+    start: datetime,
+    end: datetime,
+    exclude_id: Optional[int] = None,
+) -> List[Appointment]:
+    """Return existing appointments that overlap the half-open interval [start, end).
+
+    Use this before creating or rescheduling to detect time conflicts.
+    """
+    statement = select(Appointment).where(
+        col(Appointment.start_time) < end,
+        col(Appointment.end_time) > start,
+    )
+    if exclude_id is not None:
+        statement = statement.where(col(Appointment.id) != exclude_id)
+    results = await ctx.deps.session.exec(statement)
+    return list(results.all())
+
+
 async def resolve_scheduling_conflicts(
-    ctx: RunContext[Deps], 
-    user_request: str, 
+    ctx: RunContext[Deps],
+    user_request: str,
     relevant_appointments: List[str]
 ) -> ConflictResolution:
     """
     Call this tool when you detect a conflict between a user request and existing appointments.
     It will return structured alternative suggestions.
-    
+
     Args:
         user_request: The original request from the user.
         relevant_appointments: A list of strings describing the conflicting or nearby appointments.
     """
     if not ctx.deps.negotiator_agent:
         raise ValueError("Negotiator agent not provided in dependencies")
-    
+
     prompt = f"User Request: {user_request}\nExisting Appointments: {relevant_appointments}"
-    
+
     # Pass usage context to track tokens correctly across agents
     result = await ctx.deps.negotiator_agent.run(prompt, usage=ctx.usage)
     return result.output
