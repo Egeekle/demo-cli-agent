@@ -111,22 +111,29 @@ async def check_availability(
 async def resolve_scheduling_conflicts(
     ctx: RunContext[Deps],
     user_request: str,
-    relevant_appointments: List[str]
+    proposed_start: datetime,
+    proposed_end: datetime,
 ) -> ConflictResolution:
-    """
-    Call this tool when you detect a conflict between a user request and existing appointments.
-    It will return structured alternative suggestions.
+    """Detect and resolve a scheduling conflict for a proposed time window.
 
-    Args:
-        user_request: The original request from the user.
-        relevant_appointments: A list of strings describing the conflicting or nearby appointments.
+    Fetches the real overlapping appointments from the database and asks the
+    negotiator subagent to propose alternatives. Returns structured suggestions.
     """
-    if not ctx.deps.negotiator_agent:
+    if ctx.deps.negotiator_agent is None:
         raise ValueError("Negotiator agent not provided in dependencies")
 
-    prompt = f"User Request: {user_request}\nExisting Appointments: {relevant_appointments}"
+    conflicts = await check_availability(ctx, start=proposed_start, end=proposed_end)
+    conflict_lines = "\n".join(
+        f"- {c.title}: {c.start_time:%A %b %d %H:%M}-{c.end_time:%H:%M}"
+        + (f" @ {c.location}" if c.location else "")
+        for c in conflicts
+    ) or "- (none)"
 
-    # Pass usage context to track tokens correctly across agents
+    prompt = (
+        f"User Request: {user_request}\n"
+        f"Proposed Slot: {proposed_start:%A %b %d %H:%M}-{proposed_end:%H:%M}\n"
+        f"Overlapping Existing Appointments:\n{conflict_lines}"
+    )
     result = await ctx.deps.negotiator_agent.run(prompt, usage=ctx.usage)
     return result.output
 
