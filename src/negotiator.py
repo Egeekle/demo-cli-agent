@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from pydantic_ai import Agent
 
 from src.providers import agent_model, default_model_settings
@@ -27,8 +25,3 @@ negotiator_agent: Agent[None, ConflictResolution] = Agent(
         "Return your analysis strictly in the required structured format."
     ),
 )
-
-
-@negotiator_agent.instructions
-def current_date() -> str:
-    return f"Today is {datetime.now():%A, %B %d, %Y}."

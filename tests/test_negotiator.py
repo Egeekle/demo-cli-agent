@@ -12,6 +12,7 @@ async def test_negotiator_returns_structured_output():
     ]
     
     prompt = f"""
+    Today is {datetime.now():%A, %B %d, %Y}.
     User Request: {user_request}
     Existing Appointments: {existing_appointments}
     """

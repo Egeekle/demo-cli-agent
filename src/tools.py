@@ -130,6 +130,7 @@ async def resolve_scheduling_conflicts(
     ) or "- (none)"
 
     prompt = (
+        f"Today is {ctx.deps.now():%A, %B %d, %Y}.\n"
         f"User Request: {user_request}\n"
         f"Proposed Slot: {proposed_start:%A %b %d %H:%M}-{proposed_end:%H:%M}\n"
         f"Overlapping Existing Appointments:\n{conflict_lines}"

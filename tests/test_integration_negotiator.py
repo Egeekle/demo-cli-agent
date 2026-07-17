@@ -47,4 +47,6 @@ async def test_resolve_passes_real_overlap_titles_to_negotiator(session):
     assert isinstance(result, ConflictResolution)
     # The real overlapping appointment title must be in the prompt (no telephone game)
     assert "Doctor's Appointment" in fake.received_prompt
+    # The injected clock's date must be passed to the negotiator (deterministic, no wall clock)
+    assert "Wednesday, February 11, 2026" in fake.received_prompt
     assert result.alternative_suggestions[0].start_time == datetime(2026, 2, 12, 16, 0)
