@@ -1187,8 +1187,6 @@ git commit -m "feat: deferred-approval summary and results helpers"
 Replace `tests/test_agent_structure.py` with:
 
 ```python
-from pydantic_ai import DeferredToolRequests
-
 from src.agent import appointment_agent
 
 
@@ -1206,11 +1204,6 @@ def test_destructive_tools_require_approval():
     tools = appointment_agent._function_toolset.tools
     for name in ["create_appointment", "update_appointment", "delete_appointment"]:
         assert tools[name].requires_approval is True
-
-
-def test_output_type_includes_deferred_requests():
-    # The agent can surface approval requests as output
-    assert DeferredToolRequests in getattr(appointment_agent, "output_type", ()) or True
 ```
 
 Note: `_function_toolset.tools` is an internal accessor; if the attribute differs in the installed version, adjust to the actual registry (confirm with `uv run python -c "from src.agent import appointment_agent; print(dir(appointment_agent))"`). The behavioral guarantees are covered by the evals; this structural test is a fast smoke check.
