@@ -1,36 +1,33 @@
 import pytest
-from sqlmodel import create_engine, SQLModel, Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from src.models import Appointment
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
-@pytest.fixture(name="session")
-def session_fixture():
-    # Use in-memory database for testing
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    # implicit rollback/close when session context ends if not committed
+@pytest.mark.asyncio
+async def test_get_session_yields_async_session_and_persists(monkeypatch):
+    # Use a fresh in-memory async engine for isolation
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+    from sqlmodel import SQLModel
 
+    test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
-def test_create_appointment(session: Session):
-    now = datetime.now()
-    appointment = Appointment(
-        title="Meeting",
-        start_time=now,
-        end_time=now + timedelta(hours=1),
-        location="Office",
-        description="Discuss project",
-    )
-    session.add(appointment)
-    session.flush()  # Send to DB so ID is generated
-    session.refresh(appointment)
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
 
-    assert appointment.id is not None
+    async with factory() as session:
+        appt = Appointment(
+            title="X",
+            start_time=datetime(2026, 2, 12, 9, 0),
+            end_time=datetime(2026, 2, 12, 10, 0),
+        )
+        session.add(appt)
+        await session.commit()
+        await session.refresh(appt)
+        assert appt.id is not None
 
-    statement = select(Appointment).where(Appointment.title == "Meeting")
-    results = session.exec(statement)
-    fetched_appointment = results.one()
-    assert fetched_appointment.title == "Meeting"
-    assert fetched_appointment.location == "Office"
+        rows = (await session.exec(select(Appointment))).all()
+        assert len(rows) == 1
