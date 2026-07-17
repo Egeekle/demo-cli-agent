@@ -129,3 +129,49 @@ async def resolve_scheduling_conflicts(
     # Pass usage context to track tokens correctly across agents
     result = await ctx.deps.negotiator_agent.run(prompt, usage=ctx.usage)
     return result.output
+
+
+async def update_appointment(
+    ctx: RunContext[Deps],
+    appointment_id: int,
+    title: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    location: Optional[str] = None,
+    description: Optional[str] = None,
+) -> Appointment:
+    """Partially update an appointment. Only provided fields change. Refuses to
+    reschedule into a conflicting slot."""
+    appointment = await ctx.deps.session.get(Appointment, appointment_id)
+    if not appointment:
+        raise ModelRetry(f"No appointment with id {appointment_id} exists.")
+
+    new_start = start_time if start_time is not None else appointment.start_time
+    new_end = end_time if end_time is not None else appointment.end_time
+
+    if start_time is not None or end_time is not None:
+        _validate_times(ctx, new_start, new_end)
+        conflicts = await check_availability(
+            ctx, start=new_start, end=new_end, exclude_id=appointment_id
+        )
+        if conflicts:
+            names = ", ".join(f"{c.title} ({c.start_time:%b %d %H:%M})" for c in conflicts)
+            raise ModelRetry(
+                f"Rescheduling conflicts with: {names}. Resolve the conflict before updating."
+            )
+
+    if title is not None:
+        appointment.title = title
+    if start_time is not None:
+        appointment.start_time = start_time
+    if end_time is not None:
+        appointment.end_time = end_time
+    if location is not None:
+        appointment.location = location
+    if description is not None:
+        appointment.description = description
+
+    ctx.deps.session.add(appointment)
+    await ctx.deps.session.commit()
+    await ctx.deps.session.refresh(appointment)
+    return appointment
