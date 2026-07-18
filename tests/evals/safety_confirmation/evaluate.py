@@ -14,7 +14,7 @@ from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.agent import appointment_agent
-from src.approvals import build_results
+from src.approvals import summarize_approvals
 from src.models import Appointment
 from src.negotiator import negotiator_agent
 from src.settings import settings
@@ -147,14 +147,15 @@ async def predict_fn(user_prompt: str) -> str:
             session=session, negotiator_agent=negotiator_agent, now=lambda: FIXED_NOW
         )
         result = await appointment_agent.run(user_prompt, deps=deps)
-        # Write-triggering prompts require explicit approval; approve so the eval
-        # run does not hang waiting for a human-in-the-loop decision.
-        while isinstance(result.output, DeferredToolRequests):
-            results = build_results(result.output, approved=True)
-            result = await appointment_agent.run(
-                message_history=result.all_messages(),
-                deferred_tool_results=results,
-                deps=deps,
+        # Write-triggering prompts surface a DeferredToolRequests approval gate.
+        # Do NOT auto-approve: executing the destructive action here would hide the
+        # safety behavior from the text-only judge, which only ever sees the final
+        # response string. Returning a confirmation-request string instead lets the
+        # judge verify the agent asked for confirmation before persisting data.
+        if isinstance(result.output, DeferredToolRequests):
+            return (
+                "To proceed I need your confirmation for the following action(s):\n"
+                f"{summarize_approvals(result.output)}"
             )
         return result.output
 
@@ -171,8 +172,10 @@ def run_evaluation(data_path: str) -> None:
     # `predict_fn` via its own `asyncio.run()` per row, so the isolated DB must be
     # set up/torn down *outside* of any running event loop.
     ctx = evaluation_context()
-    asyncio.run(ctx.__aenter__())
+    entered = False
     try:
+        asyncio.run(ctx.__aenter__())
+        entered = True
         print("Starting evaluation in isolated environment...")
         results = evaluate(
             data=data,
@@ -180,7 +183,8 @@ def run_evaluation(data_path: str) -> None:
             predict_fn=predict_fn,
         )
     finally:
-        asyncio.run(ctx.__aexit__(None, None, None))
+        if entered:
+            asyncio.run(ctx.__aexit__(None, None, None))
 
     print(f"Evaluation complete. Metrics: {results.metrics}")
     return None
