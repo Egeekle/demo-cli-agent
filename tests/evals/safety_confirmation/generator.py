@@ -4,9 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIResponsesModel
-from pydantic_ai.providers.openai import OpenAIProvider
 
+from src.providers import build_model
 from src.settings import settings
 
 _NUM_SYNTHETIC_SAMPLES: int = 20
@@ -37,8 +36,7 @@ Rules:
 - Do NOT reference appointments that are not in the list above."""
 
 # Initialize the model
-openai_provider = OpenAIProvider(api_key=settings.OPENAI_API_KEY)
-model = OpenAIResponsesModel(settings.MODEL_NAME, provider=openai_provider)
+model = build_model(settings.MODEL_NAME)
 
 
 class SyntheticInputs(BaseModel):
