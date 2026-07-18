@@ -68,3 +68,31 @@ async def test_update_same_time_no_self_conflict(session):
 async def test_update_missing_id_raises(session):
     with pytest.raises(ModelRetry):
         await tools.update_appointment(_ctx(session), appointment_id=99999, title="Nope")
+
+
+@pytest.mark.asyncio
+async def test_update_end_time_only_does_not_raise_past_check(session):
+    # The Doctor's Appointment starts 2026-02-12 14:00, which is still in the
+    # future relative to fixed_clock (2026-02-11 10:00). Updating only
+    # end_time must not spuriously fail a past-start check against the
+    # unchanged (future) start_time.
+    doctor = await _doctor(session)
+    updated = await tools.update_appointment(
+        _ctx(session),
+        appointment_id=doctor.id,
+        end_time=datetime(2026, 2, 12, 15, 30),
+    )
+    assert updated.end_time == datetime(2026, 2, 12, 15, 30)
+    assert updated.start_time == doctor.start_time  # unchanged
+
+
+@pytest.mark.asyncio
+async def test_update_start_time_into_past_raises(session):
+    doctor = await _doctor(session)
+    with pytest.raises(ModelRetry):
+        await tools.update_appointment(
+            _ctx(session),
+            appointment_id=doctor.id,
+            start_time=datetime(2026, 2, 10, 9, 0),  # before fixed_clock (Feb 11)
+            end_time=datetime(2026, 2, 10, 10, 0),
+        )

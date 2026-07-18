@@ -1,5 +1,5 @@
 from pydantic_ai import Agent, DeferredToolRequests
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 
 from src.providers import agent_model, default_model_settings
 from src.tools import (
@@ -17,11 +17,55 @@ from src.tools import (
 _MAX_HISTORY_MESSAGES = 20
 
 
+def _is_user_turn_boundary(message: ModelMessage) -> bool:
+    """A "user turn" starts at a `ModelRequest` carrying a `UserPromptPart`.
+
+    Trimming must only ever cut the history at one of these boundaries:
+    everything else (ToolReturnPart requests, ModelResponse tool calls, plain
+    text responses) belongs to the middle of an exchange and can't stand on
+    its own as the start of history without orphaning a tool-call/tool-result
+    pair, which the OpenAI Responses API rejects with a 400.
+    """
+    return isinstance(message, ModelRequest) and any(
+        isinstance(part, UserPromptPart) for part in message.parts
+    )
+
+
 def _trim_history(messages: list[ModelMessage]) -> list[ModelMessage]:
-    """Bound token growth by keeping only the most recent messages."""
+    """Bound token growth by keeping only the most recent messages, without
+    ever splitting a ModelResponse's ToolCallPart from its matching
+    ModelRequest ToolReturnPart.
+
+    A naive `messages[-_MAX_HISTORY_MESSAGES:]` slice can land inside an
+    exchange (e.g. between a tool call and its return), which produces a
+    history that starts with an orphaned tool result / dangling tool call and
+    gets rejected by the model API. Instead we only ever cut at a clean
+    user-turn boundary (see `_is_user_turn_boundary`):
+
+    1. Compute the naive cut point, then scan forward from it for the
+       earliest user-turn boundary and cut there instead. This keeps the
+       trimmed history close to `_MAX_HISTORY_MESSAGES` while guaranteeing it
+       starts cleanly.
+    2. If the tail (from the naive cut point onward) has no boundary at all
+       (the whole tail is one long in-flight exchange), fall back to the
+       nearest boundary *before* the cut point so we still trim.
+    3. If no boundary exists anywhere in the history, return it unchanged —
+       we never return a history that begins mid-exchange.
+    """
     if len(messages) <= _MAX_HISTORY_MESSAGES:
         return messages
-    return messages[-_MAX_HISTORY_MESSAGES:]
+
+    cut = len(messages) - _MAX_HISTORY_MESSAGES
+
+    for i in range(cut, len(messages)):
+        if _is_user_turn_boundary(messages[i]):
+            return messages[i:]
+
+    for i in range(cut - 1, -1, -1):
+        if _is_user_turn_boundary(messages[i]):
+            return messages[i:]
+
+    return messages
 
 
 appointment_agent = Agent(

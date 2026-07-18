@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 @pytest.mark.asyncio
-async def test_get_session_yields_async_session_and_persists(monkeypatch):
+async def test_get_session_yields_async_session_and_persists():
     # Use a fresh in-memory async engine for isolation
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from sqlmodel import SQLModel

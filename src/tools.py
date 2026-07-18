@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, List, Optional
 
@@ -40,10 +40,12 @@ async def get_appointment(ctx: RunContext[Deps], id: int) -> Optional[Appointmen
     """Get a specific appointment by ID."""
     return await ctx.deps.session.get(Appointment, id)
 
-def _validate_times(ctx: RunContext[Deps], start_time: datetime, end_time: datetime) -> None:
+def _validate_times(
+    ctx: RunContext[Deps], start_time: datetime, end_time: datetime, check_past: bool = True
+) -> None:
     if end_time <= start_time:
         raise ModelRetry("end_time must be after start_time.")
-    if start_time < ctx.deps.now():
+    if check_past and start_time < ctx.deps.now():
         raise ModelRetry("start_time is in the past; pick a future time.")
 
 
@@ -158,7 +160,10 @@ async def update_appointment(
     new_end = end_time if end_time is not None else appointment.end_time
 
     if start_time is not None or end_time is not None:
-        _validate_times(ctx, new_start, new_end)
+        # Only re-check the past-start rule when start_time is actually
+        # changing; otherwise an unchanged (already-past-relative-to-"now")
+        # start_time would wrongly block an end_time-only edit.
+        _validate_times(ctx, new_start, new_end, check_past=start_time is not None)
         conflicts = await check_availability(
             ctx, start=new_start, end=new_end, exclude_id=appointment_id
         )
