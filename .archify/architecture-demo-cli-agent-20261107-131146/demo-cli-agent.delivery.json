@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "e5a70e5f-6678-41d8-a6e1-2a26915bca0f",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/candidate.json",
+  "output": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.html",
+  "specification": {
+    "sha256": "1a5a0cb30c8682dad7a8ad842dbdd773abb6329045dcf7a64b5664787e88e28e",
+    "bytes": 7670
+  },
+  "artifact": {
+    "sha256": "efebccba638959b6a069f310a9de66abe30dadd99a824517788fbb374e9c6047",
+    "bytes": 856712
+  }
+}

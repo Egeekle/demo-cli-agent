@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "CLI Appointment Agent",
+    "locale": "en",
+    "output": ".archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/AHuaman/demo-cli-agent.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "f5fda78d6561c4bdbb68f591b486a48662831795"
+    }
+  },
+  "components": [
+    {
+      "id": "mlflow_ui",
+      "type": "frontend",
+      "label": "MLflow UI",
+      "sublabel": "ml-ui script",
+      "pos": [40, 40],
+      "size": [130, 56],
+      "sources": [
+        { "path": "src/mlflow_server.py", "line": 7, "end_line": 38, "label": "serve()" },
+        { "path": "pyproject.toml", "line": 20, "label": "ml-ui entry point" }
+      ]
+    },
+    {
+      "id": "mlflow",
+      "type": "database",
+      "label": "MLflow store",
+      "sublabel": "mlflow.db traces",
+      "pos": [290, 40],
+      "size": [150, 60],
+      "sources": [
+        { "path": "src/providers.py", "line": 7, "end_line": 9, "label": "tracking URI + autolog" },
+        { "path": "src/settings.py", "line": 9, "label": "MLFLOW_TRACKING_URI" }
+      ]
+    },
+    {
+      "id": "providers",
+      "type": "backend",
+      "label": "Provider module",
+      "sublabel": "shared model + autolog",
+      "pos": [510, 40],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src/providers.py", "line": 7, "end_line": 21, "label": "build_model / agent_model" }
+      ]
+    },
+    {
+      "id": "openai",
+      "type": "external",
+      "label": "OpenAI",
+      "sublabel": "Responses API",
+      "pos": [780, 40],
+      "size": [160, 60],
+      "sources": [
+        { "path": "src/providers.py", "line": 11, "end_line": 16, "label": "OpenAIProvider" },
+        { "path": "src/settings.py", "line": 5, "end_line": 6, "label": "API key + model name" }
+      ]
+    },
+    {
+      "id": "user",
+      "type": "external",
+      "label": "You",
+      "sublabel": "Terminal",
+      "pos": [40, 190],
+      "size": [110, 56]
+    },
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "Typer CLI",
+      "sublabel": "chat loop, one session per turn",
+      "pos": [200, 190],
+      "size": [150, 60],
+      "sources": [
+        { "path": "src/main.py", "line": 21, "end_line": 46, "label": "_run_turn" },
+        { "path": "src/main.py", "line": 49, "end_line": 80, "label": "chat_loop" },
+        { "path": "pyproject.toml", "line": 18, "end_line": 19, "label": "appointment-agent script" }
+      ]
+    },
+    {
+      "id": "supervisor",
+      "type": "backend",
+      "label": "Supervisor agent",
+      "sublabel": "appointment_agent",
+      "tag": "history trimmed to 20",
+      "pos": [510, 190],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src/agent.py", "line": 71, "end_line": 96, "label": "Agent construction" },
+        { "path": "src/agent.py", "line": 98, "end_line": 105, "label": "tool registration" },
+        { "path": "src/agent.py", "line": 34, "end_line": 68, "label": "_trim_history" }
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Appointment tools",
+      "sublabel": "8 tools over RunContext[Deps]",
+      "pos": [760, 190],
+      "size": [150, 64],
+      "sources": [
+        { "path": "src/tools.py", "line": 19, "end_line": 41, "label": "read tools" },
+        { "path": "src/tools.py", "line": 52, "end_line": 80, "label": "create_appointment" },
+        { "path": "src/tools.py", "line": 93, "end_line": 110, "label": "check_availability" }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "SQLite",
+      "sublabel": "database.db via aiosqlite",
+      "pos": [995, 190],
+      "size": [150, 64],
+      "sources": [
+        { "path": "src/database.py", "line": 10, "end_line": 25, "label": "async engine + session" },
+        { "path": "src/models.py", "line": 6, "end_line": 12, "label": "Appointment table" },
+        { "path": "src/settings.py", "line": 10, "label": "DATABASE_URL" }
+      ]
+    },
+    {
+      "id": "approvals",
+      "type": "security",
+      "label": "Approval gate",
+      "sublabel": "requires_approval=True",
+      "pos": [300, 340],
+      "size": [200, 64],
+      "sources": [
+        { "path": "src/approvals.py", "line": 14, "end_line": 23, "label": "build_results" },
+        { "path": "src/approvals.py", "line": 4, "end_line": 11, "label": "summarize_approvals" },
+        { "path": "src/agent.py", "line": 102, "end_line": 104, "label": "gated tools" }
+      ]
+    },
+    {
+      "id": "negotiator",
+      "type": "backend",
+      "label": "Negotiator subagent",
+      "sublabel": "returns ConflictResolution",
+      "pos": [750, 340],
+      "size": [170, 64],
+      "sources": [
+        { "path": "src/negotiator.py", "line": 6, "end_line": 27, "label": "negotiator_agent" },
+        { "path": "src/schemas.py", "line": 5, "end_line": 14, "label": "ConflictResolution" }
+      ]
+    }
+  ],
+  "connections": [
+    { "id": "user-chat", "from": "user", "to": "cli", "label": "chat", "variant": "emphasis" },
+    { "id": "cli-run", "from": "cli", "to": "supervisor", "label": "agent.run()", "variant": "emphasis" },
+    { "id": "await-approval", "from": "supervisor", "to": "cli", "label": "approval required", "variant": "security" },
+    { "id": "cli-decision", "from": "cli", "to": "approvals", "label": "yes / no", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "id": "resume-run", "from": "approvals", "to": "supervisor", "label": "approve / deny", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "tool-calls", "from": "supervisor", "to": "tools", "label": "tool calls", "variant": "emphasis" },
+    { "id": "sql", "from": "tools", "to": "db", "label": "async SQL", "variant": "emphasis" },
+    { "id": "delegate", "from": "tools", "to": "negotiator", "label": "run(usage)", "fromSide": "bottom", "toSide": "top" },
+    { "id": "model", "from": "supervisor", "to": "providers", "label": "agent_model", "fromSide": "top", "toSide": "bottom" },
+    { "id": "inference", "from": "providers", "to": "openai", "label": "Responses API" },
+    { "id": "traces", "from": "providers", "to": "mlflow", "label": "traces", "variant": "dashed" },
+    { "id": "serve-traces", "from": "mlflow_ui", "to": "mlflow", "label": "serves", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Human-in-the-loop safety",
+      "items": [
+        "create, update and delete are registered with requires_approval=True",
+        "The run halts and returns DeferredToolRequests; the tool body never executes until approved",
+        "check_availability blocks double-booking with ModelRetry before any write"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "One shared model",
+      "items": [
+        "src/providers.py builds a single OpenAIResponsesModel on one OpenAIProvider",
+        "Both appointment_agent and negotiator_agent import agent_model from it",
+        "mlflow.pydantic_ai.autolog() is called once, at import time"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Dependency injection",
+      "items": [
+        "Deps carries the AsyncSession, the negotiator agent and a now() clock",
+        "One session per user turn, opened in _run_turn and reused across the approval round-trip"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Entry points",
+      "items": [
+        "appointment-agent runs the Typer chat loop in src/main.py",
+        "ml-ui shells out to mlflow server against the same tracking URI"
+      ]
+    }
+  ]
+}

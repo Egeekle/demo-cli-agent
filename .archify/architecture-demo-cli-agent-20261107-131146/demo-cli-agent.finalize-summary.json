@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/candidate.json",
+    "sha256": "1a5a0cb30c8682dad7a8ad842dbdd773abb6329045dcf7a64b5664787e88e28e",
+    "bytes": 7670
+  },
+  "artifact": {
+    "path": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.html",
+    "sha256": "efebccba638959b6a069f310a9de66abe30dadd99a824517788fbb374e9c6047",
+    "bytes": 856712
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.finalize.json",
+    "summaryReceipt": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.finalize-summary.json",
+    "browserCheckReceipt": "/Users/jessieblake/Developer/Projects/Agentic_cli/.archify/architecture-demo-cli-agent-20261107-131146/demo-cli-agent.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-07T18:06:07.599Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 2542,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}
