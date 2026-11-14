@@ -1,19 +1,22 @@
+import asyncio
 import json
 import os
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import mlflow
 from mlflow.entities import Feedback, SpanType, Trace
 from mlflow.genai import evaluate
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import scorer
+from pydantic_ai import DeferredToolRequests
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-import src.database
 from src.agent import appointment_agent
+from src.approvals import summarize_approvals
 from src.models import Appointment
 from src.negotiator import negotiator_agent
 from src.settings import settings
@@ -23,6 +26,9 @@ _MLFLOW_EXPERIMENT_NAME: str = "Happy Path Operations Eval"
 _SYNTHETIC_DATASET_PATH: str = (
     "tests/evals/happy_path_operations/data/happy_path_dataset.jsonl"
 )
+
+# Fixed clock injected into Deps for deterministic evaluation (no datetime patching).
+FIXED_NOW: datetime = datetime(2026, 2, 11, 10, 0, 0)
 
 _GROUNDEDNESS_JUDGE_INSTRUCTIONS: str = """You are evaluating whether an agent's response is grounded in the expected appointments.
 
@@ -79,34 +85,33 @@ Score 0 if:
 mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
 mlflow.set_experiment(_MLFLOW_EXPERIMENT_NAME)
 
-# Define LLM Judges
+# Define LLM Judges (run on the dedicated judge model, not the agent's model).
 groundedness_judge = make_judge(
     name="answer_groundedness",
     instructions=_GROUNDEDNESS_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.MODEL_NAME}",
+    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
     feedback_value_type=bool,
 )
 
 correctness_judge = make_judge(
     name="answer_correctness",
     instructions=_CORRECTNESS_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.MODEL_NAME}",
+    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
     feedback_value_type=bool,
 )
 
 retrieval_recall_judge = make_judge(
-    name="retrieval_recall",
+    name="retrieval_recall_judge",
     instructions=_RETRIEVAL_RECALL_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.MODEL_NAME}",
+    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
     feedback_value_type=bool,
 )
 
 
-# Legacy code-based scorer (kept for reference, not used)
 @scorer
 def retrieval_recall(trace: Trace, expectations: dict):
     """
-    Code-based scorer that measures retrieval recall.
+    Deterministic, code-based scorer that measures retrieval recall.
     Checks if expected appointments were retrieved by tool calls.
     """
     expected_appointments = set(expectations.get("expected_appointments", []))
@@ -145,87 +150,98 @@ def retrieval_recall(trace: Trace, expectations: dict):
     )
 
 
-@contextmanager
-def evaluation_context():
+# Session factory for the isolated in-memory DB, populated by `evaluation_context`
+# and consumed by `predict_fn`.
+test_factory: async_sessionmaker | None = None
+
+
+@asynccontextmanager
+async def evaluation_context():
     """
     Sets up a safe, isolated environment for evaluation.
-    - Mocks the database to use an in-memory SQLite instance.
-    - Seeds the database with test data.
-    - Mocks datetime to a fixed point in time.
+    - Async in-memory SQLite database, seeded with test data.
+    - A fixed clock (FIXED_NOW) is injected into Deps by `predict_fn` (no datetime
+      patching).
     """
-    # 1. Setup In-Memory DB
-    test_engine = create_engine(
-        "sqlite:///:memory:",
+    global test_factory
+
+    # 1. Setup async in-memory DB
+    test_engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(test_engine)
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    factory = async_sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     # 2. Seed Data
-    with Session(test_engine) as session:
-        appts = [
-            Appointment(
-                title="Doctor's Appointment",
-                start_time=datetime.fromisoformat("2026-02-12T14:00:00"),
-                end_time=datetime.fromisoformat("2026-02-12T14:00:00")
-                + timedelta(minutes=60),
-            ),
-            Appointment(
-                title="Team Sync",
-                start_time=datetime.fromisoformat("2026-02-12T09:00:00"),
-                end_time=datetime.fromisoformat("2026-02-12T09:00:00")
-                + timedelta(minutes=30),
-            ),
-            Appointment(
-                title="Lunch with Sarah",
-                start_time=datetime.fromisoformat("2026-02-13T12:00:00"),
-                end_time=datetime.fromisoformat("2026-02-13T12:00:00")
-                + timedelta(minutes=60),
-            ),
-            Appointment(
-                title="Marketing Team Meeting",
-                start_time=datetime.fromisoformat("2026-02-17T15:00:00"),
-                end_time=datetime.fromisoformat("2026-02-17T15:00:00")
-                + timedelta(minutes=60),
-                location="Conference Room B",
-            ),
-            Appointment(
-                title="Dentist Appointment",
-                start_time=datetime.fromisoformat("2026-05-05T10:00:00"),
-                end_time=datetime.fromisoformat("2026-05-05T10:00:00")
-                + timedelta(minutes=60),
-                location="Downtown Clinic",
-            ),
-        ]
-        session.add_all(appts)
-        session.commit()
+    async with factory() as s:
+        s.add_all(
+            [
+                Appointment(
+                    title="Doctor's Appointment",
+                    start_time=datetime.fromisoformat("2026-02-12T14:00:00"),
+                    end_time=datetime.fromisoformat("2026-02-12T14:00:00")
+                    + timedelta(minutes=60),
+                ),
+                Appointment(
+                    title="Team Sync",
+                    start_time=datetime.fromisoformat("2026-02-12T09:00:00"),
+                    end_time=datetime.fromisoformat("2026-02-12T09:00:00")
+                    + timedelta(minutes=30),
+                ),
+                Appointment(
+                    title="Lunch with Sarah",
+                    start_time=datetime.fromisoformat("2026-02-13T12:00:00"),
+                    end_time=datetime.fromisoformat("2026-02-13T12:00:00")
+                    + timedelta(minutes=60),
+                ),
+                Appointment(
+                    title="Marketing Team Meeting",
+                    start_time=datetime.fromisoformat("2026-02-17T15:00:00"),
+                    end_time=datetime.fromisoformat("2026-02-17T15:00:00")
+                    + timedelta(minutes=60),
+                    location="Conference Room B",
+                ),
+                Appointment(
+                    title="Dentist Appointment",
+                    start_time=datetime.fromisoformat("2026-05-05T10:00:00"),
+                    end_time=datetime.fromisoformat("2026-05-05T10:00:00")
+                    + timedelta(minutes=60),
+                    location="Downtown Clinic",
+                ),
+            ]
+        )
+        await s.commit()
 
-    # 3. Define the mocked get_session
-    @contextmanager
-    def mock_get_session():
-        with Session(test_engine) as session:
-            yield session
-
-    # 4. Mock Datetime (Fixed to Wed, Feb 11, 2026, 10:00 AM)
-    class MockDatetime(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return cls(2026, 2, 11, 10, 0, 0)
-
-    # Apply patches
-    with (
-        patch("src.database.get_session", side_effect=mock_get_session),
-        patch("src.agent.datetime", MockDatetime),
-        patch("src.negotiator.datetime", MockDatetime),
-    ):
-        yield
+    test_factory = factory
+    try:
+        yield factory
+    finally:
+        test_factory = None
+        await test_engine.dispose()
 
 
 async def predict_fn(user_prompt: str) -> str:
     """Run the appointment agent and return its response."""
-    with src.database.get_session() as session:
-        deps = Deps(session=session, negotiator_agent=negotiator_agent)
+    async with test_factory() as session:
+        deps = Deps(
+            session=session, negotiator_agent=negotiator_agent, now=lambda: FIXED_NOW
+        )
         result = await appointment_agent.run(user_prompt, deps=deps)
+        # Destructive actions (CREATE/UPDATE/DELETE) surface as a DeferredToolRequests
+        # approval gate rather than being auto-approved. Returning a confirmation
+        # string (instead of executing the action) keeps the safety behavior visible
+        # to the text-only judges and satisfies expected_answer_contains=["confirm"].
+        if isinstance(result.output, DeferredToolRequests):
+            return (
+                "To proceed I need your confirmation for the following action(s):\n"
+                f"{summarize_approvals(result.output)}"
+            )
         return result.output
 
 
@@ -237,13 +253,28 @@ def run_evaluation(data_path: str = _SYNTHETIC_DATASET_PATH) -> None:
     with open(data_path, "r") as f:
         data = [json.loads(line) for line in f]
 
-    with evaluation_context():
+    # `mlflow.genai.evaluate` is synchronous and internally drives the async
+    # `predict_fn` via its own `asyncio.run()` per row, so the isolated DB must be
+    # set up/torn down *outside* of any running event loop.
+    ctx = evaluation_context()
+    entered = False
+    try:
+        asyncio.run(ctx.__aenter__())
+        entered = True
         print("Starting evaluation in isolated environment...")
         results = evaluate(
             data=data,
-            scorers=[retrieval_recall_judge, groundedness_judge, correctness_judge],
+            scorers=[
+                retrieval_recall,
+                retrieval_recall_judge,
+                groundedness_judge,
+                correctness_judge,
+            ],
             predict_fn=predict_fn,
         )
+    finally:
+        if entered:
+            asyncio.run(ctx.__aexit__(None, None, None))
 
     print(f"Evaluation complete. Metrics: {results.metrics}")
     return results

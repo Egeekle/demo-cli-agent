@@ -1,7 +1,19 @@
-import pytest
+import os
 from datetime import datetime
+
+import pytest
+
 from src.negotiator import negotiator_agent
 from src.schemas import ConflictResolution
+
+# This test drives the real model (network + OPENAI_API_KEY). Skip when no API
+# key is available so the offline suite (and CI) stays green; run manually
+# with OPENAI_API_KEY set to exercise it live.
+pytestmark = pytest.mark.skipif(
+    not os.getenv("OPENAI_API_KEY"),
+    reason="live model eval; run manually with OPENAI_API_KEY",
+)
+
 
 @pytest.mark.asyncio
 async def test_negotiator_returns_structured_output():
@@ -12,6 +24,7 @@ async def test_negotiator_returns_structured_output():
     ]
     
     prompt = f"""
+    Today is {datetime.now():%A, %B %d, %Y}.
     User Request: {user_request}
     Existing Appointments: {existing_appointments}
     """

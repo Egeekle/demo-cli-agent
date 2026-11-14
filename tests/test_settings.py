@@ -22,3 +22,10 @@ def test_settings_default_values(monkeypatch):
     # Just verify they are populated (not empty)
     assert settings.MLFLOW_TRACKING_URI
     assert settings.DATABASE_URL
+
+
+def test_judge_and_temperature_defaults():
+    from src.settings import Settings
+    s = Settings(OPENAI_API_KEY="test-key")
+    assert s.JUDGE_MODEL_NAME == "gpt-5.2"
+    assert s.MODEL_TEMPERATURE == 0.0

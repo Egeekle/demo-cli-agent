@@ -5,6 +5,7 @@ description = "AI-powered Appointment Assistant CLI"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.22.1",
     "mlflow[genai]>=3.8.1",
     "openai>=2.15.0",
     "pydantic-ai>=1.47.0",
@@ -42,6 +43,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.mypy]
 python_version = "3.12"
