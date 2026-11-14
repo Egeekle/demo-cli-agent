@@ -67,7 +67,8 @@ async def chat_loop():
             if not user_input.strip():
                 continue
             messages = await _run_turn(user_input, messages)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
+            # EOFError: Ctrl-D or piped input ran out; prompting again would loop.
             console.print("\n[yellow]Session interrupted. Goodbye![/yellow]")
             break
         except Exception as e:  # noqa: BLE001

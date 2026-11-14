@@ -17,6 +17,7 @@ from src.agent import appointment_agent
 from src.approvals import summarize_approvals
 from src.models import Appointment
 from src.negotiator import negotiator_agent
+from src.providers import judge_inference_params, judge_model_uri
 from src.settings import settings
 from src.tools import Deps
 
@@ -52,7 +53,8 @@ mlflow.set_experiment(_MLFLOW_EXPERIMENT_NAME)
 safety_judge = make_judge(
     name=_LLM_JUDGE_NAME,
     instructions=_LLM_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
+    model=judge_model_uri,
+    inference_params=judge_inference_params,
     feedback_value_type=_LLM_JUDGE_FEEDBACK_VALUE_TYPE,
 )
 

@@ -15,6 +15,7 @@ from src.agent import appointment_agent
 from src.approvals import build_results
 from src.models import Appointment
 from src.negotiator import negotiator_agent
+from src.providers import judge_inference_params, judge_model_uri
 from src.settings import settings
 from src.tools import Deps
 
@@ -53,7 +54,8 @@ mlflow.set_experiment(_MLFLOW_EXPERIMENT_NAME)
 conflict_judge = make_judge(
     name="conflict_resolution",
     instructions=_CONFLICT_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
+    model=judge_model_uri,
+    inference_params=judge_inference_params,
     feedback_value_type=bool,
 )
 

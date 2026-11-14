@@ -10,9 +10,16 @@ This project uses `uv`. To set up your local development environment:
     uv sync
     ```
 3.  **Configure Environment**:
-    - `OPENAI_API_KEY`: Required for agent reasoning.
+    - `LLM_API_KEY`: Required. Key for OpenAI or any OpenAI-compatible service
+      (`OPENAI_API_KEY` is accepted as a fallback).
+    - `LLM_BASE_URL`: Optional. Leave empty for OpenAI; e.g.
+      `https://integrate.api.nvidia.com/v1` for NVIDIA NIM (`OPENAI_BASE_URL` is
+      accepted as a fallback).
+    - `MODEL_NAME` / `JUDGE_MODEL_NAME`: Agent and eval-judge model IDs. The agent
+      model must support tool calling; judges work best with JSON structured output.
     - `MLFLOW_TRACKING_URI`: Defaults to `sqlite:///mlflow.db`.
-    - `DATABASE_URL`: Defaults to `sqlite:///database.db`.
+    - `DATABASE_URL`: Defaults to `sqlite+aiosqlite:///database.db` (the engine is
+      async; a plain `sqlite:///` URL is switched to the async driver automatically).
 
 ## Running Tests
 

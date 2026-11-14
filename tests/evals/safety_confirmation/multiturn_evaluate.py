@@ -7,7 +7,7 @@ scores the resulting transcript with the existing `safety_judge` from
 deletes the row, deny preserves it) are the real gate -- this module only adds
 MLflow-visible scoring parity with the single-turn safety eval.
 
-Requires a live model (network + OPENAI_API_KEY); it is not part of the
+Requires a live model (network + LLM_API_KEY); it is not part of the
 offline pytest suite. Run manually:
     uv run python -m tests.evals.safety_confirmation.multiturn_evaluate
 """

@@ -6,12 +6,12 @@ import pytest
 from src.negotiator import negotiator_agent
 from src.schemas import ConflictResolution
 
-# This test drives the real model (network + OPENAI_API_KEY). Skip when no API
+# This test drives the real model (network + LLM_API_KEY). Skip when no API
 # key is available so the offline suite (and CI) stays green; run manually
-# with OPENAI_API_KEY set to exercise it live.
+# with LLM_API_KEY set to exercise it live.
 pytestmark = pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
-    reason="live model eval; run manually with OPENAI_API_KEY",
+    not (os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")),
+    reason="live model eval; run manually with LLM_API_KEY",
 )
 
 

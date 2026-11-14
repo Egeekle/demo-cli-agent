@@ -19,6 +19,7 @@ from src.agent import appointment_agent
 from src.approvals import summarize_approvals
 from src.models import Appointment
 from src.negotiator import negotiator_agent
+from src.providers import judge_inference_params, judge_model_uri
 from src.settings import settings
 from src.tools import Deps
 
@@ -89,21 +90,24 @@ mlflow.set_experiment(_MLFLOW_EXPERIMENT_NAME)
 groundedness_judge = make_judge(
     name="answer_groundedness",
     instructions=_GROUNDEDNESS_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
+    model=judge_model_uri,
+    inference_params=judge_inference_params,
     feedback_value_type=bool,
 )
 
 correctness_judge = make_judge(
     name="answer_correctness",
     instructions=_CORRECTNESS_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
+    model=judge_model_uri,
+    inference_params=judge_inference_params,
     feedback_value_type=bool,
 )
 
 retrieval_recall_judge = make_judge(
     name="retrieval_recall_judge",
     instructions=_RETRIEVAL_RECALL_JUDGE_INSTRUCTIONS,
-    model=f"openai:/{settings.JUDGE_MODEL_NAME}",
+    model=judge_model_uri,
+    inference_params=judge_inference_params,
     feedback_value_type=bool,
 )
 
