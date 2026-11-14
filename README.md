@@ -9,7 +9,7 @@ A high-quality demo of a personal AI assistant that operates in your terminal, h
 ### 1. Prerequisites
 
 - [uv](https://github.com/astral-sh/uv) installed.
-- An OpenAI API Key.
+- An API key for OpenAI or any OpenAI-compatible service (e.g. NVIDIA NIM).
 
 ### 2. Setup
 
@@ -19,7 +19,9 @@ Clone the repo and create your `.env` file:
 cp .env.example .env
 ```
 
-Edit `.env` and add your `OPENAI_API_KEY`.
+Edit `.env` and set `LLM_API_KEY`. To use a non-OpenAI service, also set `LLM_BASE_URL`
+and the model IDs; `.env.example` has a ready-to-uncomment NVIDIA NIM block. An existing
+`OPENAI_API_KEY` / `OPENAI_BASE_URL` still work.
 
 ### 3. Install Dependencies
 

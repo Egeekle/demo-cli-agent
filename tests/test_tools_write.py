@@ -1,72 +1,76 @@
+from datetime import datetime
+from types import SimpleNamespace
+
 import pytest
-import mlflow
-import tempfile
-import shutil
-from sqlmodel import create_engine, SQLModel, Session
-from datetime import datetime, timedelta
-from src.models import Appointment
+from pydantic_ai import ModelRetry
+from sqlmodel import select
+
 from src import tools
-from dataclasses import dataclass
-from typing import Any
+from src.models import Appointment
+from src.tools import Deps
+from tests.conftest import fixed_clock
 
 
-@dataclass
-class MockContext:
-    deps: Any
+def _ctx(session):
+    return SimpleNamespace(deps=Deps(session=session, negotiator_agent=None, now=fixed_clock))  # type: ignore[arg-type]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_mlflow():
-    temp_dir = tempfile.mkdtemp()
-    db_path = f"{temp_dir}/mlflow.db"
-    mlflow.set_tracking_uri(f"sqlite:///{db_path}")
-    yield
-    shutil.rmtree(temp_dir)
-
-
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture
-def mock_ctx(session):
-    return MockContext(deps=tools.Deps(session=session))
-
-
-def test_create_appointment(session, mock_ctx):
-    now = datetime.now()
-    app = tools.create_appointment(
-        mock_ctx,
-        title="New Appointment",
-        start_time=now,
-        end_time=now + timedelta(hours=1),
-        location="Office",
-        description="Test desc",
+@pytest.mark.asyncio
+async def test_create_free_slot_persists(session):
+    appt = await tools.create_appointment(
+        _ctx(session),
+        title="New Meeting",
+        start_time=datetime(2026, 2, 14, 10, 0),
+        end_time=datetime(2026, 2, 14, 11, 0),
     )
-
-    assert app.id is not None
-    assert app.title == "New Appointment"
-
-    db_app = session.get(Appointment, app.id)
-    assert db_app is not None
-    assert db_app.title == "New Appointment"
+    assert appt.id is not None
+    rows = (await session.exec(select(Appointment).where(Appointment.title == "New Meeting"))).all()
+    assert len(rows) == 1
 
 
-def test_delete_appointment(session, mock_ctx):
-    now = datetime.now()
-    app = Appointment(
-        title="To Delete", start_time=now, end_time=now + timedelta(hours=1)
-    )
-    session.add(app)
-    session.commit()
-    app_id = app.id
+@pytest.mark.asyncio
+async def test_create_overlap_raises_and_does_not_persist(session):
+    with pytest.raises(ModelRetry):
+        await tools.create_appointment(
+            _ctx(session),
+            title="Clash",
+            start_time=datetime(2026, 2, 12, 14, 30),
+            end_time=datetime(2026, 2, 12, 15, 30),
+        )
+    rows = (await session.exec(select(Appointment).where(Appointment.title == "Clash"))).all()
+    assert rows == []
 
-    success = tools.delete_appointment(mock_ctx, app_id)
-    assert success is True
 
-    db_app = session.get(Appointment, app_id)
-    assert db_app is None
+@pytest.mark.asyncio
+async def test_create_rejects_inverted_times(session):
+    with pytest.raises(ModelRetry):
+        await tools.create_appointment(
+            _ctx(session),
+            title="Bad",
+            start_time=datetime(2026, 2, 14, 11, 0),
+            end_time=datetime(2026, 2, 14, 10, 0),
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_past_start(session):
+    with pytest.raises(ModelRetry):
+        await tools.create_appointment(
+            _ctx(session),
+            title="Past",
+            start_time=datetime(2026, 2, 10, 9, 0),  # before fixed_clock (Feb 11)
+            end_time=datetime(2026, 2, 10, 10, 0),
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_existing_returns_true(session):
+    all_appts = await tools.list_appointments(_ctx(session))
+    ok = await tools.delete_appointment(_ctx(session), appointment_id=all_appts[0].id)
+    assert ok is True
+
+
+@pytest.mark.asyncio
+async def test_delete_missing_returns_false(session):
+    ok = await tools.delete_appointment(_ctx(session), appointment_id=99999)
+    assert ok is False

@@ -1,88 +1,34 @@
+from types import SimpleNamespace
+
 import pytest
-import mlflow
-import tempfile
-import shutil
-from sqlmodel import create_engine, SQLModel, Session
-from datetime import datetime, timedelta
-from src.models import Appointment
+
 from src import tools
-from dataclasses import dataclass
-from typing import Any
+from src.tools import Deps
+from tests.conftest import fixed_clock
 
 
-@dataclass
-class MockContext:
-    deps: Any
+def _ctx(session):
+    deps = Deps(session=session, negotiator_agent=None, now=fixed_clock)  # type: ignore[arg-type]
+    return SimpleNamespace(deps=deps)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_mlflow():
-    temp_dir = tempfile.mkdtemp()
-    db_path = f"{temp_dir}/mlflow.db"
-    mlflow.set_tracking_uri(f"sqlite:///{db_path}")
-    yield
-    shutil.rmtree(temp_dir)
+@pytest.mark.asyncio
+async def test_list_appointments_returns_all(session):
+    result = await tools.list_appointments(_ctx(session))
+    assert len(result) == 3
 
 
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
+@pytest.mark.asyncio
+async def test_search_appointments_by_title(session):
+    result = await tools.search_appointments(_ctx(session), query="Sarah")
+    assert len(result) == 1
+    assert result[0].title == "Lunch with Sarah"
 
 
-@pytest.fixture
-def mock_ctx(session):
-    return MockContext(deps=tools.Deps(session=session))
-
-
-@pytest.fixture
-def sample_appointments(session):
-    app1 = Appointment(
-        title="Team Meeting",
-        start_time=datetime.now(),
-        end_time=datetime.now() + timedelta(hours=1),
-        location="Room A",
-        description="Weekly sync",
-    )
-    app2 = Appointment(
-        title="Doctor Appointment",
-        start_time=datetime.now() + timedelta(days=1),
-        end_time=datetime.now() + timedelta(days=1, hours=1),
-        location="Clinic",
-        description="Checkup",
-    )
-    app3 = Appointment(
-        title="Lunch with Client",
-        start_time=datetime.now() + timedelta(days=2),
-        end_time=datetime.now() + timedelta(days=2, hours=2),
-        location="Restaurant",
-        description="Project discussion",
-    )
-    session.add(app1)
-    session.add(app2)
-    session.add(app3)
-    session.commit()
-    return [app1, app2, app3]
-
-
-def test_list_appointments(mock_ctx, sample_appointments):
-    results = tools.list_appointments(mock_ctx)
-    assert len(results) == 3
-
-    results = tools.list_appointments(mock_ctx, limit=1, offset=0)
-    assert len(results) == 1
-    assert results[0].title == "Team Meeting"
-
-
-def test_search_appointments(mock_ctx, sample_appointments):
-    results = tools.search_appointments(mock_ctx, "Doctor")
-    assert len(results) == 1
-    assert results[0].title == "Doctor Appointment"
-
-
-def test_get_appointment(mock_ctx, sample_appointments):
-    app = tools.get_appointment(mock_ctx, 1)
-    assert app is not None
-    assert app.title == "Team Meeting"
+@pytest.mark.asyncio
+async def test_get_appointment_by_id(session):
+    all_appts = await tools.list_appointments(_ctx(session))
+    target = all_appts[0]
+    fetched = await tools.get_appointment(_ctx(session), id=target.id)
+    assert fetched is not None
+    assert fetched.id == target.id
